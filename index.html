@@ -70,73 +70,67 @@
     <!-- 무료 지도(Leaflet) 기능 불러오기 -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <script>
-        // 1. 지도 초기 설정 (기본 위치: 죽전동 근처)
-        let map = L.map('map').setView([37.3235, 127.1086], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+  <script>
+            let map = L.map('map').setView([37.3235, 127.1086], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
 
-        let currentMarker = L.marker([37.3235, 127.1086]).addTo(map)
-            .bindPopup('<b>설정된 위치</b>').openPopup();
+            let currentMarker = L.marker([37.3235, 127.1086]).addTo(map).bindPopup('<b>설정된 위치</b>').openPopup();
 
-        // 2. 가짜(테스트용) 채용공고 데이터
-        const mockJobs = [
-            { id: 1, site: '알바몬', siteClass: 'albamon', company: '스타벅스 용인죽전역점', title: '[주말/단기] 매장 관리 및 바리스타 모집', distance: '0.8km', walk: '🚶도보 12분', car: '🚗차량 3분' },
-            { id: 2, site: '알바천국', siteClass: 'albacheonguk', company: 'CU 죽전동성점', title: '평일 야간 스태프 급구 (주 3일/초보가능)', distance: '1.2km', walk: '🚶도보 18분', car: '🚗차량 5분' },
-            { id: 3, site: '워크넷', siteClass: 'worknet', company: '(주)아이코닉스', title: '사무보조 및 엑셀 데이터 입력 단기 아르바이트', distance: '2.5km', walk: '🚶도보 35분', car: '🚗차량 8분' },
-            { id: 4, site: '알바몬', siteClass: 'albamon', company: '맥도날드 수지DT점', title: '드라이브스루 크루 대모집 (시간협의)', distance: '3.1km', walk: '🚶도보 45분', car: '🚗차량 10분' }
-        ];
+            // ★ 서버(로봇)에게 크롤링 해오라고 요청하는 함수
+            async function fetchRealJobs() {
+                const jobListElement = document.getElementById('jobList');
+                jobListElement.innerHTML = '<p style="text-align:center; padding:20px; font-weight:bold; color:#007aff;">크롤링 로봇이 알바 사이트에서 데이터를 긁어오는 중입니다... ⏳</p>';
 
-        // 3. 화면에 채용공고를 그리는 함수
-        function renderJobs() {
-            const jobListElement = document.getElementById('jobList');
-            jobListElement.innerHTML = ''; // 기존 목록 지우기
-
-            mockJobs.forEach(job => {
-                const cardHtml = `
-                    <div class="job-card" onclick="alert('${job.site} 원본 페이지로 이동합니다.')">
-                        <div class="card-header">
-                            <span class="badge ${job.siteClass}">${job.site}</span>
-                            <span class="distance">${job.distance}</span>
-                        </div>
-                        <div class="company">${job.company}</div>
-                        <div class="title">${job.title}</div>
-                        <div class="time-info">
-                            <span>${job.walk}</span>
-                            <span>${job.car}</span>
-                        </div>
-                    </div>
-                `;
-                jobListElement.insertAdjacentHTML('beforeend', cardHtml);
-            });
-        }
-
-        // 4. 내 위치 찾기 버튼 클릭 시 실행되는 함수
-        function findMyLocation() {
-            if (navigator.geolocation) {
-                alert("GPS로 현재 위치를 확인합니다. (브라우저 상단 '허용'을 눌러주세요)");
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
+                try {
+                    const response = await fetch('/api/jobs');
+                    const result = await response.json();
                     
-                    // 지도 이동 및 핀 꽂기
-                    map.setView([lat, lng], 15);
-                    if(currentMarker) map.removeLayer(currentMarker);
-                    currentMarker = L.marker([lat, lng]).addTo(map)
-                        .bindPopup('<b>내 현재 위치</b>').openPopup();
-                        
-                    document.getElementById('addressInput').value = "내 현재 위치";
-                }, function(error) {
-                    alert("위치 정보를 가져올 수 없습니다. 권한을 확인해주세요.");
-                });
-            } else {
-                alert("이 브라우저에서는 GPS를 지원하지 않습니다.");
-            }
-        }
+                    jobListElement.innerHTML = ''; // 로딩 글자 지우기
 
-        // 웹페이지가 열리자마자 목록 그리기
-        renderJobs();
+                    if(result.success) {
+                        result.data.forEach(job => {
+                            const cardHtml = `
+                                <div class="job-card">
+                                    <div class="card-header">
+                                        <span class="badge ${job.siteClass}">${job.site}</span>
+                                        <span class="distance">${job.distance}</span>
+                                    </div>
+                                    <div class="company">${job.company}</div>
+                                    <div class="title">${job.title}</div>
+                                    <div class="time-info">
+                                        <span>${job.walk}</span>
+                                        <span>${job.car}</span>
+                                    </div>
+                                </div>
+                            `;
+                            jobListElement.insertAdjacentHTML('beforeend', cardHtml);
+                        });
+                    }
+                } catch (error) {
+                    jobListElement.innerHTML = '<p style="text-align:center; padding:20px;">서버와 연결할 수 없습니다.</p>';
+                }
+            }
+
+            function findMyLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        map.setView([lat, lng], 15);
+                        if(currentMarker) map.removeLayer(currentMarker);
+                        currentMarker = L.marker([lat, lng]).addTo(map).bindPopup('<b>내 현재 위치</b>').openPopup();
+                        document.getElementById('addressInput').value = "내 현재 위치";
+                    }, function(error) {
+                        alert("위치 정보를 가져올 수 없습니다.");
+                    });
+                }
+            }
+
+            // 웹페이지가 열리자마자 크롤링 시작!
+            fetchRealJobs();
+        </script>
     </script>
 </body>
 </html>
